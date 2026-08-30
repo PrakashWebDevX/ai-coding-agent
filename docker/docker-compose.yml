@@ -1,0 +1,36 @@
+version: "3.9"
+
+# NOTE: The browser automation layer attaches to a Chrome instance running on
+# the HOST machine (via --remote-debugging-port). When running the backend in
+# Docker, use network_mode: host (Linux) or point CHROME_REMOTE_DEBUG_PORT at
+# host.docker.internal (Docker Desktop on Mac/Windows) by editing .env.
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    volumes:
+      - ../database:/app/database
+    network_mode: host
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    network_mode: host
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    profiles:
+      - cache
