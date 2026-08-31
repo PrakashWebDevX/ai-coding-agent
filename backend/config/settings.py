@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     # --- LLM providers (free tier only) ---
     groq_api_key: str = ""
     openrouter_api_key: str = ""
-    primary_model: str = "groq/llama-3.3-70b-versatile"
-    fallback_model: str = "openrouter/meta-llama/llama-3.1-8b-instruct:free"
+    primary_model: str = "groq/openai/gpt-oss-120b"
+    fallback_model: str = "openrouter/meta-llama/llama-3.3-70b-instruct:free"
 
     # --- Browser automation ---
     chrome_remote_debug_port: int = 9222

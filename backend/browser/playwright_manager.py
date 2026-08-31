@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from playwright.async_api import BrowserContext, Page, async_playwright
 
-from backend.config.selectors import SiteSelectors, get_selectors_for_url
+from backend.config.selectors import SITE_PROFILES, SiteSelectors, get_selectors_for_url
 from backend.config.settings import get_settings
 from backend.utils.logger import get_logger, log_browser
 
@@ -34,6 +34,10 @@ class BrowserManager:
     async def connect(self) -> Page:
         """Attach to the existing Chrome instance over CDP and grab the active tab."""
         self._playwright = await async_playwright().start()
+        # Use 127.0.0.1 explicitly rather than "localhost" — on Windows,
+        # "localhost" often resolves to the IPv6 loopback (::1) first, but
+        # Chrome's remote debugging server only binds to IPv4, causing
+        # ECONNREFUSED even though the port is genuinely open.
         cdp_url = f"http://127.0.0.1:{self.settings.chrome_remote_debug_port}"
         log_browser(logger, f"Connecting to Chrome over CDP at {cdp_url}")
 
@@ -44,10 +48,33 @@ class BrowserManager:
         if not pages:
             raise RuntimeError("No open tabs found. Open the coding problem in Chrome first.")
 
-        # Heuristic: use the most recently focused/active page (last in list).
-        self._page = pages[-1]
+        self._page = await self._pick_problem_tab(pages)
         log_browser(logger, f"Attached to tab: {self._page.url}")
         return self._page
+
+    # URLs that are clearly part of this project's own tooling, never the problem itself.
+    _OWN_TOOLING_URL_FRAGMENTS = ("localhost:8501", "localhost:8000", "127.0.0.1:8501", "127.0.0.1:8000")
+
+    async def _pick_problem_tab(self, pages: list[Page]):
+        """Pick the most likely 'coding problem' tab, skipping our own dashboard/backend tabs.
+
+        Preference order: (1) a tab whose URL matches a known site profile (leetcode.com etc.),
+        (2) any tab that isn't our own tooling, (3) the last tab as a last resort.
+        """
+        candidates = [p for p in pages if not any(frag in p.url for frag in self._OWN_TOOLING_URL_FRAGMENTS)]
+
+        if not candidates:
+            raise RuntimeError(
+                "No problem tab found — only the dashboard/backend tabs are open. "
+                "Open your coding problem in a separate Chrome tab first."
+            )
+
+        known_hosts = [h for h in SITE_PROFILES if h != "default"]
+        for page in candidates:
+            if any(host in page.url for host in known_hosts):
+                return page
+
+        return candidates[-1]
 
     async def disconnect(self) -> None:
         if self._browser:
