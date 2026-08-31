@@ -41,7 +41,9 @@ class BrowserManager:
         cdp_url = f"http://127.0.0.1:{self.settings.chrome_remote_debug_port}"
         log_browser(logger, f"Connecting to Chrome over CDP at {cdp_url}")
 
-        self._browser = await self._playwright.chromium.connect_over_cdp(cdp_url)
+        self._browser = await self._playwright.chromium.connect_over_cdp(
+            cdp_url, timeout=self.settings.browser_timeout_ms
+        )
         self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
 
         pages = self._context.pages
