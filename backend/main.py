@@ -11,17 +11,9 @@ Endpoints:
   GET  /api/memory/solutions     - all previously solved problems
   GET  /api/session/{session_id} - current session state
 """
-from __future__ import annotations
-
 import asyncio
 import sys
 
-# Playwright spawns a subprocess (its browser driver) under the hood. On Windows,
-# asyncio's default SelectorEventLoop cannot create subprocesses — only the
-# ProactorEventLoop can. uvicorn/WatchFiles can otherwise leave the wrong policy
-# active, causing `NotImplementedError` when Playwright tries to connect.
-# This must be set before any event loop is created, so it lives at the very
-# top of the entrypoint module.
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
