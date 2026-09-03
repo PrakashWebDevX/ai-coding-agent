@@ -47,8 +47,7 @@ GENERIC_PROFILE = SiteSelectors(
     language_dropdown_trigger=["button:has-text('Python3')", "button:has-text('Python')",
                                 "[id^='headlessui-listbox-button']", ".lang-select button"],
     language_option_menu=["[role='option']", "li:has-text('{language}')", ".ant-select-item"],
-    next_problem_button=["[aria-label='next']", "a:has-text('Next')", "button:has-text('Next')",
-                          ".next-problem"],
+    next_problem_button=["a[aria-label='Next Question']", "[aria-label='Next Question']"],
 )
 
 # Registry keyed by hostname fragment; extend with more site profiles as needed.
