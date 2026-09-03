@@ -6,9 +6,12 @@ Attaches to an ALREADY RUNNING Chrome instance via the remote debugging port
 browser profile for the practice workflow — the user opens the problem
 themselves, and the agent reads/writes into that same tab.
 
-The agent NEVER clicks Submit. Only Run.
+The interactive dashboard flow only ever calls click_run(), never
+click_submit() — that one is used exclusively by the opt-in autonomous
+batch-mode graph.
 """
 from __future__ import annotations
+
 import re
 
 from playwright.async_api import BrowserContext, Page, async_playwright
