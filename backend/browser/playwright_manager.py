@@ -9,6 +9,7 @@ themselves, and the agent reads/writes into that same tab.
 The agent NEVER clicks Submit. Only Run.
 """
 from __future__ import annotations
+import re
 
 from playwright.async_api import BrowserContext, Page, async_playwright
 
@@ -266,6 +267,17 @@ class BrowserManager:
     async def click_next_problem(self) -> bool:
         """Click the site's 'next problem' control, if present. Returns True on success."""
         sel = self.selectors()
+
+        # Submit can redirect to a /submissions/<id>/ results page, where the
+        # next-problem toolbar may not exist in the same place (or at all).
+        # Normalize back to the canonical problem page first.
+        current = self.page.url
+        match = re.search(r"(https?://[^/]+/problems/[^/]+/)", current)
+        if match:
+            base_url = match.group(1)
+            if current != base_url:
+                await self.navigate_to(base_url)
+
         try:
             button = await self._first_matching(sel.next_problem_button, timeout=5000)
             await button.click()
