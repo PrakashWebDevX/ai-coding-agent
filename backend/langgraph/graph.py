@@ -93,7 +93,6 @@ def build_test_and_retry_graph():
         },
     )
 
-    graph.add_edge("retry", "formatter")
     graph.add_edge("formatter", "paste_editor")
     graph.add_edge("paste_editor", "memory")  # after re-pasting, log and stop; user clicks Run again
     graph.add_edge("memory", "dashboard")
