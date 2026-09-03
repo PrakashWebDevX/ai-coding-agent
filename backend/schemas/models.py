@@ -132,6 +132,40 @@ class SessionSchema(BaseModel):
     finished_at: datetime | None = None
 
 
+class BatchProblemResult(BaseModel):
+    url: str
+    title: str | None = None
+    status: WorkflowStatus
+    retry_count: int = 0
+    error_summary: str | None = None
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    finished_at: datetime | None = None
+
+
+class BatchStatus(str, Enum):
+    IDLE = "idle"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+
+class BatchSessionSchema(BaseModel):
+    batch_id: str
+    status: BatchStatus = BatchStatus.IDLE
+    language: Language = Language.PYTHON
+    max_retries: int = 5
+    max_problems: int | None = None
+    queue: list[str] = Field(default_factory=list)  # explicit URLs; empty = use site "next" nav
+    current_index: int = 0
+    current_url: str | None = None
+    results: list[BatchProblemResult] = Field(default_factory=list)
+    logs: list[str] = Field(default_factory=list)
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    finished_at: datetime | None = None
+
+
 # ---- LangGraph shared state ----
 class AgentState(BaseModel):
     """The single state object threaded through every LangGraph node."""

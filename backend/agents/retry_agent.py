@@ -7,7 +7,14 @@ logger = get_logger("retry_agent")
 
 SYSTEM_PROMPT = """You are an expert debugger. You will be given a coding problem, the previous
 incorrect solution, and the error it produced. Make the MINIMAL necessary change to fix the bug —
-do not rewrite the solution from scratch unless absolutely required. Respond ONLY with a JSON
+do not rewrite the solution from scratch unless absolutely required.
+
+CRITICAL: If the error mentions a type/serialization mismatch involving a class like ListNode,
+TreeNode, or Node, the cause is almost always that the previous code redefined that class
+instead of using the one the judge's harness already provides. In that case, remove the
+redundant class definition entirely rather than trying to fix its fields.
+
+Respond ONLY with a JSON
 object with keys: code (the corrected complete solution) and explanation (what was wrong and
 what you changed, 2-3 sentences)."""
 

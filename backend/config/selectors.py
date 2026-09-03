@@ -24,6 +24,9 @@ class SiteSelectors(BaseModel):
     error_container: list[str]
     failed_testcase_container: list[str]
     console_output: list[str]
+    language_dropdown_trigger: list[str]
+    language_option_menu: list[str]
+    next_problem_button: list[str]
 
 
 # Generic fallback profile — works on most Monaco-based judges (LeetCode-style).
@@ -41,12 +44,27 @@ GENERIC_PROFILE = SiteSelectors(
     error_container=[".error-message", "[data-e2e-locator='console-error']"],
     failed_testcase_container=[".testcase-panel", ".test-case-content"],
     console_output=[".output-content", "pre.output"],
+    language_dropdown_trigger=["button:has-text('Python3')", "button:has-text('Python')",
+                                "[id^='headlessui-listbox-button']", ".lang-select button"],
+    language_option_menu=["[role='option']", "li:has-text('{language}')", ".ant-select-item"],
+    next_problem_button=["[aria-label='next']", "a:has-text('Next')", "button:has-text('Next')",
+                          ".next-problem"],
 )
 
 # Registry keyed by hostname fragment; extend with more site profiles as needed.
 SITE_PROFILES: dict[str, SiteSelectors] = {
     "leetcode.com": GENERIC_PROFILE,
     "default": GENERIC_PROFILE,
+}
+
+
+# Maps our internal Language enum values to the display label the judge site
+# shows in its language dropdown. Extend per-site if a site uses different names.
+LANGUAGE_DISPLAY_NAMES: dict[str, list[str]] = {
+    "python": ["Python3", "Python 3", "Python"],
+    "java": ["Java"],
+    "cpp": ["C++"],
+    "javascript": ["JavaScript"],
 }
 
 

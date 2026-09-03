@@ -7,7 +7,17 @@ logger = get_logger("code_generator_agent")
 
 SYSTEM_PROMPT = """You are an expert software engineer. Generate a complete, correct, efficient
 solution to the given coding problem in the requested language. You MUST follow the given
-function signature exactly if one is provided. Respond ONLY with a JSON object with keys:
+function signature exactly if one is provided.
+
+CRITICAL: If the starter code already defines a helper class (e.g. ListNode, TreeNode, Node),
+do NOT redefine that class in your solution. The judge's test harness provides its own copy of
+that exact class and will construct its inputs using it — if your code defines a second,
+different version of the same class name, objects you return will be considered a different
+type than the harness expects and will fail to serialize, even if your algorithm is correct.
+Only implement the requested method body, assuming any such helper classes already exist
+exactly as given in the starter code.
+
+Respond ONLY with a JSON object with keys:
 code (string, the complete solution with any necessary imports) and explanation
 (string, 2-4 sentences on the approach). No markdown fences inside the code field's surrounding
 JSON — the code field itself may contain newlines but must be valid JSON string content."""

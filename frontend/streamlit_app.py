@@ -21,7 +21,7 @@ if "session_state" not in st.session_state:
 st.sidebar.title("🧠 AI Coding Agent")
 page = st.sidebar.radio(
     "Navigate",
-    ["Dashboard", "Problem", "Generated Code", "Errors", "Logs", "Memory"],
+    ["Dashboard", "Batch Mode", "Problem", "Generated Code", "Errors", "Logs", "Memory"],
 )
 
 theme = st.sidebar.toggle("Dark mode", value=True)
@@ -99,6 +99,87 @@ if page == "Dashboard":
 
     if state and state.get("status") == "success":
         st.success("🎉 All tests passed! Please manually review the code and click Submit in your browser.")
+
+
+# ---------------- Batch Mode Page ----------------
+elif page == "Batch Mode":
+    st.title("Batch Mode (Loop)")
+    st.caption(
+        "Solves multiple problems back-to-back with no manual clicks in between — "
+        "language selection, solving, running tests, self-correction, **submission**, "
+        "and advancing to the next problem all happen automatically."
+    )
+
+    if "batch_id" not in st.session_state:
+        st.session_state.batch_id = None
+
+    with st.form("start_batch_form"):
+        batch_language = st.selectbox("Language", ["python", "java", "cpp", "javascript"], key="batch_lang")
+        batch_max_retries = st.number_input("Max retries per problem", min_value=1, max_value=10, value=5)
+
+        mode = st.radio(
+            "How should it move between problems?",
+            ["Use site's own 'Next problem' button", "Explicit list of problem URLs"],
+        )
+
+        queue: list[str] = []
+        max_problems = None
+        if mode == "Explicit list of problem URLs":
+            urls_text = st.text_area(
+                "Problem URLs (one per line)",
+                placeholder="https://leetcode.com/problems/two-sum/\nhttps://leetcode.com/problems/valid-parentheses/",
+                height=120,
+            )
+            queue = [line.strip() for line in urls_text.splitlines() if line.strip()]
+        else:
+            max_problems = st.number_input("Stop after this many problems", min_value=1, max_value=100, value=5)
+
+        submitted = st.form_submit_button("▶️ Start Batch", use_container_width=True)
+
+    if submitted:
+        body = {
+            "language": batch_language,
+            "max_retries": batch_max_retries,
+            "queue": queue,
+        }
+        if max_problems is not None:
+            body["max_problems"] = max_problems
+        result = api_post("/batch/start", body)
+        if result:
+            st.session_state.batch_id = result["batch_id"]
+            st.success(f"Batch started: {result['batch_id']}")
+
+    if st.session_state.batch_id:
+        st.divider()
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.subheader(f"Batch: `{st.session_state.batch_id}`")
+        with col2:
+            if st.button("⏹ Stop Batch", use_container_width=True):
+                api_post(f"/batch/stop/{st.session_state.batch_id}", {})
+                st.warning("Stop requested — will halt after the current problem finishes.")
+
+        if st.button("🔄 Refresh Status"):
+            st.rerun()
+
+        status = api_get(f"/batch/status/{st.session_state.batch_id}")
+        if status:
+            colA, colB, colC = st.columns(3)
+            colA.metric("Status", status["status"])
+            colB.metric("Problems done", len(status["results"]))
+            colC.metric("Current", status.get("current_url", "—") or "—")
+
+            if status["results"]:
+                st.subheader("Results")
+                for r in status["results"]:
+                    icon = "✅" if r["status"] == "success" else ("⚠️" if r["status"] == "failed_max_retries" else "❌")
+                    st.write(f"{icon} **{r.get('title') or r['url']}** — {r['status']} (retries: {r['retry_count']})")
+                    if r.get("error_summary"):
+                        st.caption(r["error_summary"])
+
+            with st.expander("Batch log"):
+                for line in status.get("logs", []):
+                    st.text(line)
 
 
 # ---------------- Problem Page ----------------

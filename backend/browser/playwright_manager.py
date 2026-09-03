@@ -112,18 +112,54 @@ class BrowserManager:
 
     # ---- Editor operations ----
     async def replace_editor_code(self, new_code: str) -> None:
-        """Clear the Monaco editor completely and paste new code."""
+        """Replace the Monaco editor's contents with new_code, preserving exact formatting.
+
+        Monaco auto-indents on every newline when text arrives via simulated keystrokes
+        (keyboard.insertText), which compounds with the indentation already present in
+        new_code and produces a "staircase" of extra leading whitespace. To avoid this,
+        we set the editor's value directly through Monaco's own JS API when it's exposed
+        on window.monaco (true for LeetCode and most Monaco-based judges). If that global
+        isn't available, we fall back to a clipboard paste, which Monaco treats as a single
+        atomic paste event rather than N separate keystrokes and does not re-indent.
+        """
         sel = self.selectors()
         editor = await self._first_matching(sel.monaco_editor, timeout=self.settings.browser_timeout_ms)
         log_browser(logger, "Clearing existing editor content")
 
-        await editor.click()
+        await editor.click(force=True)
+
+        set_via_api = await self.page.evaluate(
+            """(newCode) => {
+                if (window.monaco && window.monaco.editor) {
+                    const models = window.monaco.editor.getModels();
+                    if (models.length > 0) {
+                        models[0].setValue(newCode);
+                        return true;
+                    }
+                }
+                return false;
+            }""",
+            new_code,
+        )
+        if set_via_api:
+            log_browser(logger, "Set editor contents via Monaco API (exact formatting preserved)")
+            return
+
+        log_browser(logger, "Monaco API unavailable; falling back to clipboard paste")
         select_all = "Meta+A" if await self._is_mac() else "Control+A"
         await self.page.keyboard.press(select_all)
         await self.page.keyboard.press("Delete")
 
-        log_browser(logger, "Pasting new solution into editor")
-        await self.page.keyboard.insert_text(new_code)
+        try:
+            await self.page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+            await self.page.evaluate("(text) => navigator.clipboard.writeText(text)", new_code)
+            paste = "Meta+V" if await self._is_mac() else "Control+V"
+            await self.page.keyboard.press(paste)
+            log_browser(logger, "Pasted new solution via clipboard")
+        except Exception:  # noqa: BLE001
+            log_browser(logger, "Clipboard paste unavailable; falling back to keystroke insert "
+                        "(may cause editor auto-indent artifacts)")
+            await self.page.keyboard.insert_text(new_code)
 
     async def _is_mac(self) -> bool:
         ua = await self.page.evaluate("navigator.userAgent")
@@ -167,5 +203,83 @@ class BrowserManager:
         except ElementNotFoundError:
             return None
 
-    # NOTE: intentionally NO click_submit() method exists in this class.
-    # Submission is always manual, by design (see PRD).
+    async def click_submit(self) -> None:
+        """Clicks the site's Submit button. Used only in fully-autonomous batch mode,
+        which the user has explicitly opted into — interactive/dashboard mode never
+        calls this."""
+        sel = self.selectors()
+        button = await self._first_matching(sel.submit_button, timeout=self.settings.browser_timeout_ms)
+        log_browser(logger, "Clicking Submit")
+        await button.click()
+
+    async def wait_for_submit_completion(self, timeout_ms: int | None = None) -> None:
+        sel = self.selectors()
+        timeout_ms = timeout_ms or self.settings.browser_timeout_ms
+        try:
+            result = await self._first_matching(sel.result_container, timeout=timeout_ms)
+            await result.wait_for(state="visible", timeout=timeout_ms)
+        except ElementNotFoundError:
+            log_browser(logger, "Submit result container not detected within timeout")
+
+    # ---- Language selection ----
+    async def select_language(self, language: str) -> bool:
+        """Open the site's language dropdown and pick the option matching `language`.
+
+        Returns True if a matching option was found and clicked, False if the
+        dropdown or a matching option couldn't be located (caller should decide
+        whether to proceed with whatever language is already selected).
+        """
+        from backend.config.selectors import LANGUAGE_DISPLAY_NAMES
+
+        sel = self.selectors()
+        display_names = LANGUAGE_DISPLAY_NAMES.get(language, [language])
+
+        try:
+            trigger = await self._first_matching(sel.language_dropdown_trigger, timeout=5000)
+        except ElementNotFoundError:
+            log_browser(logger, f"Language dropdown not found; leaving language as-is for '{language}'")
+            return False
+
+        current_label = (await trigger.inner_text()).strip()
+        if any(name.lower() == current_label.lower() for name in display_names):
+            log_browser(logger, f"Language already set to '{current_label}'")
+            return True
+
+        await trigger.click()
+
+        for name in display_names:
+            candidates = [tmpl.replace("{language}", name) for tmpl in sel.language_option_menu]
+            try:
+                option = await self._first_matching(candidates, timeout=3000)
+                await option.click()
+                log_browser(logger, f"Selected language '{name}' from dropdown")
+                return True
+            except ElementNotFoundError:
+                continue
+
+        log_browser(logger, f"No dropdown option matched any of {display_names}; leaving language as-is")
+        # Close the dropdown if it's still open, best-effort.
+        await self.page.keyboard.press("Escape")
+        return False
+
+    # ---- Problem navigation ----
+    async def click_next_problem(self) -> bool:
+        """Click the site's 'next problem' control, if present. Returns True on success."""
+        sel = self.selectors()
+        try:
+            button = await self._first_matching(sel.next_problem_button, timeout=5000)
+            await button.click()
+            log_browser(logger, "Clicked next-problem navigation")
+            return True
+        except ElementNotFoundError:
+            log_browser(logger, "No next-problem control found")
+            return False
+
+    async def navigate_to(self, url: str) -> None:
+        log_browser(logger, f"Navigating to {url}")
+        await self.page.goto(url, wait_until="domcontentloaded")
+
+    # NOTE: click_submit() above is only ever called from the autonomous batch-mode
+    # graph, which the user explicitly opted into. The interactive dashboard flow
+    # (solve_graph / test_and_retry_graph) never calls it — those remain
+    # Run-only, with manual review before any submission.

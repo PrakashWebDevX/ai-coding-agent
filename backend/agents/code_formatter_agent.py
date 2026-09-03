@@ -35,14 +35,55 @@ def _clean_leading_prose(code: str, language: str) -> str:
     return "\n".join(lines[start_idx:]).strip()
 
 
+def _fix_escaped_newlines(code: str) -> str:
+    """Some LLMs double-escape newlines inside their JSON response, so the parsed
+    string ends up containing the literal two characters '\\' + 'n' instead of an
+    actual line break. Detect that pattern (no real newlines present, but literal
+    \\n sequences are) and unescape it.
+    """
+    if "\n" not in code and "\\n" in code:
+        code = code.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\t", "\t")
+    return code
+
+
+_KNOWN_HARNESS_CLASSES = ("ListNode", "TreeNode", "Node")
+_PY_CLASS_BLOCK = re.compile(
+    r"^class\s+({names})\b.*?(?=^class\s|^def\s|\Z)".format(
+        names="|".join(_KNOWN_HARNESS_CLASSES)
+    ),
+    re.DOTALL | re.MULTILINE,
+)
+
+
+def _strip_redundant_helper_classes(code: str, starter_code: str | None) -> str:
+    """If the starter code already provides a helper class (ListNode/TreeNode/Node)
+    and the generated solution redefines it too, remove the redundant redefinition.
+    A second, differently-scoped copy of these classes causes judge-side
+    serialization failures even when the algorithm itself is correct."""
+    if not starter_code:
+        return code
+    redundant = [name for name in _KNOWN_HARNESS_CLASSES if name in starter_code]
+    if not redundant:
+        return code
+
+    def _strip_match(match: "re.Match[str]") -> str:
+        return "" if match.group(1) in redundant else match.group(0)
+
+    stripped = _PY_CLASS_BLOCK.sub(_strip_match, code)
+    return stripped.strip()
+
+
 async def code_formatter_node(state: AgentState) -> AgentState:
     log_agent(logger, "CodeFormatter", "Cleaning generated code")
     solution = state.solution
     if solution is None:
         raise ValueError("CodeFormatter requires a generated solution in state")
 
-    cleaned = _strip_markdown_fences(solution.code)
+    cleaned = _fix_escaped_newlines(solution.code)
+    cleaned = _strip_markdown_fences(cleaned)
     cleaned = _clean_leading_prose(cleaned, solution.language.value)
+    starter_code = state.problem.starter_code if state.problem else None
+    cleaned = _strip_redundant_helper_classes(cleaned, starter_code)
 
     state.formatted_code = cleaned
     state.logs.append("Code formatted and cleaned")
