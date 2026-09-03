@@ -206,12 +206,15 @@ async def start_batch(req: StartBatchRequest):
             detail="Provide either a queue of problem URLs or a max_problems limit, "
             "so the batch has a defined stopping point.",
         )
-    batch_id = batch_orchestrator.start_batch(
-        language=req.language.value,
-        max_retries=req.max_retries,
-        max_problems=req.max_problems,
-        queue=req.queue,
-    )
+    try:
+        batch_id = batch_orchestrator.start_batch(
+            language=req.language.value,
+            max_retries=req.max_retries,
+            max_problems=req.max_problems,
+            queue=req.queue,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"batch_id": batch_id}
 
 

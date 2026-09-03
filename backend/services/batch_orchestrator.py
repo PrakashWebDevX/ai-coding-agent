@@ -29,7 +29,16 @@ _BATCHES: dict[str, BatchSessionSchema] = {}
 _TASKS: dict[str, asyncio.Task] = {}
 
 
+def is_any_batch_running() -> bool:
+    return any(b.status == BatchStatus.RUNNING for b in _BATCHES.values())
+
+
 def start_batch(language: str, max_retries: int, max_problems: int | None, queue: list[str]) -> str:
+    if is_any_batch_running():
+        raise RuntimeError(
+            "A batch is already running. Only one batch can run at a time, since "
+            "they all share the same browser tab. Stop the current batch first."
+        )
     batch_id = str(uuid.uuid4())
     batch = BatchSessionSchema(
         batch_id=batch_id,

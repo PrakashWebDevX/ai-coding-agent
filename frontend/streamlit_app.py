@@ -112,6 +112,8 @@ elif page == "Batch Mode":
 
     if "batch_id" not in st.session_state:
         st.session_state.batch_id = None
+    if "batch_running" not in st.session_state:
+        st.session_state.batch_running = False
 
     with st.form("start_batch_form"):
         batch_language = st.selectbox("Language", ["python", "java", "cpp", "javascript"], key="batch_lang")
@@ -134,9 +136,13 @@ elif page == "Batch Mode":
         else:
             max_problems = st.number_input("Stop after this many problems", min_value=1, max_value=100, value=5)
 
-        submitted = st.form_submit_button("▶️ Start Batch", use_container_width=True)
+        submitted = st.form_submit_button(
+            "▶️ Start Batch", use_container_width=True, disabled=st.session_state.batch_running
+        )
+        if st.session_state.batch_running:
+            st.caption("A batch is already running — stop it before starting a new one.")
 
-    if submitted:
+    if submitted and not st.session_state.batch_running:
         body = {
             "language": batch_language,
             "max_retries": batch_max_retries,
@@ -147,6 +153,7 @@ elif page == "Batch Mode":
         result = api_post("/batch/start", body)
         if result:
             st.session_state.batch_id = result["batch_id"]
+            st.session_state.batch_running = True
             st.success(f"Batch started: {result['batch_id']}")
 
     if st.session_state.batch_id:
@@ -164,6 +171,8 @@ elif page == "Batch Mode":
 
         status = api_get(f"/batch/status/{st.session_state.batch_id}")
         if status:
+            st.session_state.batch_running = status["status"] == "running"
+
             colA, colB, colC = st.columns(3)
             colA.metric("Status", status["status"])
             colB.metric("Problems done", len(status["results"]))
