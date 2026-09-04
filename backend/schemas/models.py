@@ -15,6 +15,7 @@ class Language(str, Enum):
     JAVA = "java"
     CPP = "cpp"
     JAVASCRIPT = "javascript"
+    SQL = "sql"
 
 
 class Difficulty(str, Enum):

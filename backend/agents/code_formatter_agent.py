@@ -24,12 +24,15 @@ def _clean_leading_prose(code: str, language: str) -> str:
         "java": ("class ", "public ", "import "),
         "cpp": ("#include", "class ", "int ", "void ", "using "),
         "javascript": ("function ", "const ", "let ", "var ", "class "),
+        "sql": ("select", "with", "insert", "update", "delete", "create"),
     }
     markers = code_start_markers.get(language, ("def ", "class ", "function "))
+    case_insensitive = language == "sql"
 
     start_idx = 0
     for i, line in enumerate(lines):
-        if any(line.strip().startswith(m) for m in markers):
+        stripped_line = line.strip().lower() if case_insensitive else line.strip()
+        if any(stripped_line.startswith(m) for m in markers):
             start_idx = i
             break
     return "\n".join(lines[start_idx:]).strip()

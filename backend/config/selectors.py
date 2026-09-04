@@ -44,8 +44,17 @@ GENERIC_PROFILE = SiteSelectors(
     error_container=[".error-message", "[data-e2e-locator='console-error']"],
     failed_testcase_container=[".testcase-panel", ".test-case-content"],
     console_output=[".output-content", "pre.output"],
-    language_dropdown_trigger=["button:has-text('Python3')", "button:has-text('Python')",
-                                "[id^='headlessui-listbox-button']", ".lang-select button"],
+    language_dropdown_trigger=[
+        # Generic, language-agnostic selectors first — the dropdown trigger button
+        # exists regardless of which language happens to be selected right now.
+        "[id^='headlessui-listbox-button']", ".lang-select button",
+        # Fallback: match on the currently-displayed label text, for whichever
+        # language/dialect the site happens to be showing when we look.
+        "button:has-text('Python3')", "button:has-text('Python')", "button:has-text('Java')",
+        "button:has-text('C++')", "button:has-text('JavaScript')", "button:has-text('MySQL')",
+        "button:has-text('PostgreSQL')", "button:has-text('MS SQL Server')",
+        "button:has-text('Oracle')", "button:has-text('Pandas')",
+    ],
     language_option_menu=["[role='option']", "li:has-text('{language}')", ".ant-select-item"],
     next_problem_button=["a[aria-label='Next Question']", "[aria-label='Next Question']"],
 )
@@ -64,6 +73,7 @@ LANGUAGE_DISPLAY_NAMES: dict[str, list[str]] = {
     "java": ["Java"],
     "cpp": ["C++"],
     "javascript": ["JavaScript"],
+    "sql": ["MySQL", "PostgreSQL", "MS SQL Server", "Oracle"],
 }
 
 

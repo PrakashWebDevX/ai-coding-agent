@@ -61,7 +61,7 @@ if page == "Dashboard":
         st.metric("Max Retries", state["max_retries"] if state else 5)
 
     st.divider()
-    language = st.selectbox("Language", ["python", "java", "cpp", "javascript"])
+    language = st.selectbox("Language", ["python", "java", "cpp", "javascript", "sql"])
     max_retries = st.number_input("Max retries", min_value=1, max_value=10, value=5)
 
     col_a, col_b, col_c = st.columns(3)
@@ -116,7 +116,7 @@ elif page == "Batch Mode":
         st.session_state.batch_running = False
 
     with st.form("start_batch_form"):
-        batch_language = st.selectbox("Language", ["python", "java", "cpp", "javascript"], key="batch_lang")
+        batch_language = st.selectbox("Language", ["python", "java", "cpp", "javascript", "sql"], key="batch_lang")
         batch_max_retries = st.number_input("Max retries per problem", min_value=1, max_value=10, value=5)
 
         mode = st.radio(

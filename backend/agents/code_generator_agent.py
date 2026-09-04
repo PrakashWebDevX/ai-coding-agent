@@ -1,5 +1,5 @@
 """Agent 3: Code Generator — writes the solution following the exact function signature."""
-from backend.schemas.models import AgentState, GeneratedSolutionSchema, WorkflowStatus
+from backend.schemas.models import AgentState, GeneratedSolutionSchema, Language, WorkflowStatus
 from backend.services.llm_service import get_llm_service
 from backend.utils.logger import get_logger, log_agent
 
@@ -22,6 +22,18 @@ code (string, the complete solution with any necessary imports) and explanation
 (string, 2-4 sentences on the approach). No markdown fences inside the code field's surrounding
 JSON — the code field itself may contain newlines but must be valid JSON string content."""
 
+SQL_SYSTEM_PROMPT = """You are an expert database engineer. The problem is a SQL problem — the
+judge's editor accepts ONLY a raw SQL query, with no function wrapper, no Python, no class, and
+no surrounding code of any kind. Given the table schema(s) described in the problem, write a
+single complete SQL statement (or a small number of statements, e.g. a CTE) that produces the
+required output exactly. Do not wrap the query in a Python string, print(), return, or any
+other language construct — the query itself is the entire answer.
+
+Respond ONLY with a JSON object with keys:
+code (string, the raw SQL query only, ending with a semicolon) and explanation
+(string, 2-4 sentences on the approach). No markdown fences inside the code field's surrounding
+JSON."""
+
 
 async def code_generator_node(state: AgentState) -> AgentState:
     log_agent(logger, "CodeGenerator", f"Generating {state.language.value} solution")
@@ -30,7 +42,17 @@ async def code_generator_node(state: AgentState) -> AgentState:
     if problem is None or plan is None:
         raise ValueError("CodeGenerator requires problem and plan in state")
 
-    user_prompt = f"""Language: {state.language.value}
+    is_sql = state.language == Language.SQL
+    system_prompt = SQL_SYSTEM_PROMPT if is_sql else SYSTEM_PROMPT
+
+    if is_sql:
+        user_prompt = f"""Problem: {problem.title}
+Description: {problem.description}
+Table schema (from the problem's starter code / description): {problem.starter_code or "see description above"}
+Approach: {plan.algorithm_strategy}
+Edge cases to handle: {plan.edge_cases}"""
+    else:
+        user_prompt = f"""Language: {state.language.value}
 Problem: {problem.title}
 Description: {problem.description}
 Function signature to follow exactly: {problem.function_signature}
@@ -40,7 +62,7 @@ Edge cases to handle: {plan.edge_cases}
 Time complexity target: {plan.time_complexity}"""
 
     llm = get_llm_service()
-    result = await llm.complete_json(SYSTEM_PROMPT, user_prompt, temperature=0.15)
+    result = await llm.complete_json(system_prompt, user_prompt, temperature=0.15)
 
     state.solution = GeneratedSolutionSchema(
         code=result["code"],

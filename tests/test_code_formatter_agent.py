@@ -78,3 +78,16 @@ async def test_keeps_listnode_when_starter_does_not_define_it(base_state):
     )
     result_state = await code_formatter_node(base_state)
     assert "class ListNode" in result_state.formatted_code
+
+
+@pytest.mark.asyncio
+async def test_strips_leading_prose_before_sql_statement(base_state):
+    base_state.solution = GeneratedSolutionSchema(
+        code="Here is the query:\n\nSELECT score, DENSE_RANK() OVER (ORDER BY score DESC) AS rank "
+        "FROM Scores ORDER BY score DESC;",
+        language=Language.SQL,
+        explanation="test",
+    )
+    result_state = await code_formatter_node(base_state)
+    assert result_state.formatted_code.upper().startswith("SELECT")
+    assert "Here is the query" not in result_state.formatted_code
