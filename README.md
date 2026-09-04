@@ -212,11 +212,20 @@ docker/          # Dockerfiles + compose
 
 ## Design notes / guardrails
 
-- **Submission is always manual.** `BrowserManager` has no `click_submit()`
-  method by design — this is a practice/debugging aid, not an auto-submitter.
+- **Two distinct modes, two different guarantees.** The interactive dashboard
+  flow (`solve_graph` / `test_and_retry_graph`) never calls `click_submit()`
+  and always stops for manual review after pasting/running — this is the
+  original practice/debugging workflow. **Batch Mode** (`autonomous_solve_graph`)
+  is opt-in and fully autonomous: it solves, tests, retries, submits, and
+  advances to the next problem with no pause. Only one batch can run at a
+  time, since they share a single browser tab.
 - **No paid LLM providers.** `llm_service.py` validates that only
   `groq/` and `openrouter/` prefixed models are used; anything else raises.
 - **No hardcoded selectors in agent code** — all live in `config/selectors.py`
   with ordered fallback lists per site profile.
-- Retry loop is user-triggered per run (you click "Run Tests" each time)
-  rather than fully autonomous, matching the PRD's manual-review workflow.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

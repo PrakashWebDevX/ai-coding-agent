@@ -3,6 +3,7 @@ name = "ai-coding-practice-agent"
 version = "1.0.0"
 description = "AI Coding Practice Browser Agent - LangGraph + Playwright + FastAPI + Streamlit"
 requires-python = ">=3.12"
+license = { text = "MIT" }
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
